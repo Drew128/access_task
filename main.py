@@ -16,7 +16,7 @@ class DataBase:
         self.cursor.execute("CREATE TABLE subject (id integer PRIMARY KEY, name TEXT)")
         self.cursor.execute("INSERT INTO subject(name) VALUES('MASTER')")
         self.cursor.execute("CREATE TABLE subj_link (parent integer, child integer)")
-        self.cursor.execute("CREATE TABLE access (subj_id integer, obj_id integer)")
+        self.cursor.execute("CREATE TABLE access (subj_id integer, obj_id integer, owner_id integer)")
         self.connection.commit()
 
     def add_obj(self, obj_name: str):
@@ -51,7 +51,7 @@ class DataBase:
         df = pd.read_sql_query(f"SELECT * FROM {table_name}", self.connection)
         return df
 
-    def read(self):
+    def read(self):     # should change to id`s
         self.cursor.execute("SELECT p.name parent, c.name child "
                             "FROM obj_link o "
                             "LEFT JOIN object p ON p.id = o.parent "
