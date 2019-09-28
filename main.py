@@ -10,26 +10,36 @@ class DataBase:
         self.connection.row_factory = sqlite3.Row
         self.cursor = self.connection.cursor()
         self.cursor.execute("CREATE TABLE object (id integer PRIMARY KEY, name TEXT)")
+        self.cursor.execute("INSERT INTO object(name) VALUES('WORLD')")
         self.cursor.execute("CREATE TABLE obj_link (parent integer, child integer)")
         self.cursor.execute("CREATE TABLE subject (id integer PRIMARY KEY, name TEXT)")
+        self.cursor.execute("INSERT INTO subject(name) VALUES('MASTER')")
         self.cursor.execute("CREATE TABLE subj_link (parent integer, child integer)")
         self.cursor.execute("CREATE TABLE access (subj_id integer, obj_id integer)")
         self.connection.commit()
 
-    def add_obj(self, obj_id: int, obj_name: str):
-        self.cursor.execute("INSERT INTO object(id, name) VALUES(?, ?)", (obj_id, obj_name))
+    def add_obj(self, obj_name: str):
+        self.cursor.execute(f"INSERT INTO object(name) VALUES('{obj_name}')")
+        self.cursor.execute(f"SELECT MAX(id) last_id FROM object")
+        last_id = self.cursor.fetchone()['last_id']
+        self.cursor.execute("INSERT INTO obj_link(parent, child) VALUES(?, ?)", (1, last_id))
         self.connection.commit()
 
     def add_obj_link(self, parent_obj_id: int, child_obj_id: str):
-        self.cursor.execute("INSERT INTO obj_link(parent, child) VALUES(?, ?)", (parent_obj_id, child_obj_id))
+        # self.cursor.execute("INSERT INTO obj_link(parent, child) VALUES(?, ?)", (parent_obj_id, child_obj_id))
+        self.cursor.execute(f"UPDATE obj_link SET parent = {parent_obj_id} WHERE child = {child_obj_id}")
         self.connection.commit()
 
-    def add_subj(self, subj_id: int, subj_name: str):
-        self.cursor.execute("INSERT INTO subject(id, name) VALUES(?, ?)", (subj_id, subj_name))
+    def add_subj(self, subj_name: str):
+        self.cursor.execute(f"INSERT INTO subject(name) VALUES('{subj_name}')")
+        self.cursor.execute(f"SELECT MAX(id) last_id FROM subject")
+        last_id = self.cursor.fetchone()['last_id']
+        self.cursor.execute("INSERT INTO subj_link(parent, child) VALUES(?, ?)", (1, last_id))
         self.connection.commit()
 
     def add_subj_link(self, parent_subj_id: int, child_subj_id: str):
-        self.cursor.execute("INSERT INTO subj_link(parent, child) VALUES(?, ?)", (parent_subj_id, child_subj_id))
+        #self.cursor.execute("INSERT INTO subj_link(parent, child) VALUES(?, ?)", (parent_subj_id, child_subj_id))
+        self.cursor.execute(f"UPDATE subj_link SET parent = {parent_subj_id} WHERE child = {child_subj_id}")
         self.connection.commit()
 
     def add_access(self, subj_id: int, obj_id: int):
@@ -42,19 +52,22 @@ class DataBase:
 
 
 db = DataBase()
-[db.add_obj(obj_id=obj_id, obj_name=obj_name)
- for obj_id, obj_name in [[1, "Europe"], [5, 'Ukraine'], [7, 'Kyiv'], [12, 'Krakow'], [16, 'Telaviv']]]
-print(db.read_pd("object"))
+[db.add_obj(obj_name=obj_name)
+ for obj_name in ["Europe", 'Ukraine', 'Kyiv', 'Poland', 'Krakow']]
+
 
 [db.add_obj_link(parent_obj_id=parent_obj_id, child_obj_id=child_obj_id)
- for parent_obj_id, child_obj_id in [[1, 5], [5, 7]]]
-print(db.read_pd("obj_link"))
+ for parent_obj_id, child_obj_id in [[2, 3], [3, 4], [2, 5], [5, 6]]]
 
-[db.add_subj(subj_id=subj_id, subj_name=subj_name)
- for subj_id, subj_name in [[0, "Yar"], [7, 'Vanya'], [777, 'Iolanta']]]
-print(db.read_pd("subject"))
+
+[db.add_subj(subj_name=subj_name)
+ for subj_name in ["Mykola", "Yar", 'Vanya', 'Iolande', 'Ihor', 'Drew']]
+
 
 [db.add_subj_link(parent_subj_id=parent_subj_id, child_subj_id=child_subj_id)
- for parent_subj_id, child_subj_id in [[0, 7], [7, 777]]]
+ for parent_subj_id, child_subj_id in [[2, 3], [3, 4], [4, 5], [3, 6], [6, 7]]]
 
+print(db.read_pd("obj_link"))
+print(db.read_pd("object"))
+print(db.read_pd("subject"))
 print(db.read_pd("subj_link"))
