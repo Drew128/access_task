@@ -1,6 +1,7 @@
 import sqlite3
 import pandas as pd
 import os
+from anytree import Node, RenderTree
 
 
 class DataBase:
@@ -50,6 +51,22 @@ class DataBase:
         df = pd.read_sql_query(f"SELECT * FROM {table_name}", self.connection)
         return df
 
+    def read(self):
+        self.cursor.execute("SELECT p.name parent, c.name child "
+                            "FROM obj_link o "
+                            "LEFT JOIN object p ON p.id = o.parent "
+                            "LEFT JOIN object c ON c.id = o.child")
+        rows = self.cursor.fetchall()
+        nods = {"WORLD": Node("WORLD")}
+        # marc = Node("Marc", parent=udo)
+        for row in rows:
+            nods.update({row['child']: Node(row['child'], parent=nods[row['parent']])})
+            print(row['parent'], row['child'])
+
+        for pre, fill, node in RenderTree(nods["WORLD"]):
+            print(pre, node.name, sep='')
+
+
 
 db = DataBase()
 [db.add_obj(obj_name=obj_name)
@@ -67,7 +84,9 @@ db = DataBase()
 [db.add_subj_link(parent_subj_id=parent_subj_id, child_subj_id=child_subj_id)
  for parent_subj_id, child_subj_id in [[2, 3], [3, 4], [4, 5], [3, 6], [6, 7]]]
 
-print(db.read_pd("obj_link"))
-print(db.read_pd("object"))
-print(db.read_pd("subject"))
-print(db.read_pd("subj_link"))
+# print(db.read_pd("obj_link"))
+# print(db.read_pd("object"))
+# print(db.read_pd("subject"))
+# print(db.read_pd("subj_link"))
+
+print(db.read())
