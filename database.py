@@ -89,7 +89,7 @@ class DataBase:
 
     @staticmethod
     def make_nods(self, df):
-        nods = {1: Node(1)}
+        nods = {1: Node(1)}               # it means that "1" is the master
         for _, row in df.iterrows():
             nods.update({row['child']: Node(row['child'], parent=nods[row['parent']])})
         return nods
