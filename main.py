@@ -39,33 +39,67 @@ class DataBase:
         self.connection.commit()
 
     def add_subj_link(self, parent_subj_id: int, child_subj_id: str):
-        #self.cursor.execute("INSERT INTO subj_link(parent, child) VALUES(?, ?)", (parent_subj_id, child_subj_id))
         self.cursor.execute(f"UPDATE subj_link SET parent = {parent_subj_id} WHERE child = {child_subj_id}")
         self.connection.commit()
 
     def add_access(self, subj_id: int, obj_id: int):
-        self.cursor.execute("INSERT INTO access(subj_id, obj_id) VALUES(?, ?)", (subj_id, obj_id))
+        subj_hrchy = pd.read_sql_query(f"SELECT * FROM subj_link", self.connection)
+        child_n_parents = [subj_id]+self.find_all_parents(self, hrchy=subj_hrchy, child=subj_id)
+        for subj in child_n_parents:
+            self.cursor.execute("INSERT INTO access(subj_id, obj_id, owner_id) VALUES(?, ?, ?)", (subj, obj_id, subj_id))
         self.connection.commit()
+
+    def del_access(self, subj_id: int, obj_id: int):
+        self.cursor.execute(f"DELETE FROM access WHERE obj_id = {obj_id} AND owner_id = {subj_id}")
+        self.connection.commit()
+
+    def check_access(self, subj_id: int, obj_id: int) -> bool:
+        accesses_df = pd.read_sql_query(f"SELECT obj_id FROM access WHERE subj_id = {subj_id}", self.connection)
+        obj_hrchy = pd.read_sql_query(f"SELECT * FROM obj_link", self.connection)
+        child_n_parents = [obj_id]+self.find_all_parents(self, obj_hrchy, obj_id)
+        accesses = set(*accesses_df.values.tolist())
+        need = set(child_n_parents)
+        return bool(accesses & need)
+
+    @staticmethod                           # should rewrite it in SQL
+    def find_all_parents(self, hrchy, child):
+        parents = []
+        while True:
+            parent = hrchy.loc[hrchy["child"] == child]['parent']
+            if parent.empty:
+                return parents
+            parents.append(int(parent))
+            child = int(parent)
+
+    def sql_to_df(self, table_name):
+        return pd.read_sql_query(f"SELECT * FROM {table_name}", self.connection)
 
     def read_pd(self, table_name):
         df = pd.read_sql_query(f"SELECT * FROM {table_name}", self.connection)
         return df
 
-    def read(self):     # should change to id`s
-        self.cursor.execute("SELECT p.name parent, c.name child "
-                            "FROM obj_link o "
-                            "LEFT JOIN object p ON p.id = o.parent "
-                            "LEFT JOIN object c ON c.id = o.child")
-        rows = self.cursor.fetchall()
-        nods = {"WORLD": Node("WORLD")}
-        # marc = Node("Marc", parent=udo)
-        for row in rows:
+    @staticmethod
+    def draw_tree(self, branches: list, replace=None):
+        if replace is None:
+            for pre, node in branches:
+                print(pre, node, sep='')
+        else:
+            for pre, node in branches:
+                print(pre, *replace.loc[replace["id"] == node]['name'].values, sep='')
+
+    @staticmethod
+    def make_nods(self, df):
+        nods = {1: Node(1)}
+        for _, row in df.iterrows():
             nods.update({row['child']: Node(row['child'], parent=nods[row['parent']])})
-            print(row['parent'], row['child'])
+        return nods
 
-        for pre, fill, node in RenderTree(nods["WORLD"]):
-            print(pre, node.name, sep='')
-
+    def tree_from_sql(self, link, handbook=None):
+        rows = self.sql_to_df(table_name=link)
+        replace = self.sql_to_df(table_name=handbook)
+        nods = self.make_nods(self, df=rows)
+        branches = [[pre, node.name] for pre, fill, node in RenderTree(nods[1])]
+        self.draw_tree(self, branches=branches, replace=replace)
 
 
 db = DataBase()
@@ -89,4 +123,11 @@ db = DataBase()
 # print(db.read_pd("subject"))
 # print(db.read_pd("subj_link"))
 
-print(db.read())
+# print(db.read())
+
+db.add_access(subj_id=6, obj_id=2)
+db.add_access(subj_id=3, obj_id=2)
+
+db.tree_from_sql(link="obj_link", handbook="object")
+db.tree_from_sql(link="subj_link", handbook="subject")
+# print(db.check_access(subj_id=6, obj_id=5))
